@@ -17,12 +17,7 @@
 
 package shark
 
-import java.util.{HashMap => JavaHashMap}
-
-import scala.collection.JavaConversions._
-
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.FunSuite
+import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 import org.apache.hadoop.hive.metastore.MetaStoreUtils.DEFAULT_DATABASE_NAME
 import org.apache.hadoop.hive.ql.metadata.Hive
@@ -40,20 +35,19 @@ class TachyonSQLSuite extends FunSuite with BeforeAndAfterAll {
   val DEFAULT_DB_NAME = DEFAULT_DATABASE_NAME
   val KV1_TXT_PATH = "${hiveconf:shark.test.data.path}/kv1.txt"
 
-  var sc: SharkContext = SharkRunner.init()
-  var sharkMetastore: MemoryMetadataManager = SharkEnv.memoryMetadataManager
+  private val sc: SharkContext = SharkRunner.init()
+  private val sharkMetastore: MemoryMetadataManager = SharkEnv.memoryMetadataManager
 
   // Determine if Tachyon enabled at runtime.
-  val isTachyonEnabled = SharkEnv.tachyonUtil.tachyonEnabled()
+  val isTachyonEnabled: Boolean = SharkEnv.tachyonUtil.tachyonEnabled()
 
-
-  override def beforeAll() {
+  override def beforeAll(): Unit = {
     if (isTachyonEnabled) {
       sc.runSql("create table test_tachyon as select * from test")
     }
   }
 
-  override def afterAll() {
+  override def afterAll(): Unit = {
     if (isTachyonEnabled) {
       sc.runSql("drop table test_tachyon")
     }
@@ -67,18 +61,18 @@ class TachyonSQLSuite extends FunSuite with BeforeAndAfterAll {
     SharkEnv.tachyonUtil.tableExists(tableKey, hivePartitionKeyOpt)
   }
 
-  private def createPartitionedTachyonTable(tableName: String, numPartitionsToCreate: Int) {
+  private def createPartitionedTachyonTable(
+      tableName: String,
+      numPartitionsToCreate: Int): Unit = {
     sc.runSql("drop table if exists %s".format(tableName))
     sc.runSql("""
       create table %s(key int, value string)
         partitioned by (keypart int)
         tblproperties('shark.cache' = 'tachyon')
       """.format(tableName))
-    var partitionNum = 1
-    while (partitionNum <= numPartitionsToCreate) {
+    for (partitionNum <- 1 to numPartitionsToCreate) {
       sc.runSql("""insert into table %s partition(keypart = %d)
         select * from test_tachyon""".format(tableName, partitionNum))
-      partitionNum += 1
     }
     assert(isTachyonTable(DEFAULT_DB_NAME, tableName))
   }

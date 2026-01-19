@@ -31,22 +31,24 @@ class SortSuite extends FunSuite {
 
   TestUtils.init()
 
-  var sc: SparkContext = SharkRunner.init()
+  private val sc: SparkContext = SharkRunner.init()
 
   test("order by limit") {
     val data = Array((4, 14), (1, 11), (7, 17), (0, 10))
-    val expected = data.sortWith(_._1 < _._1).toSeq
+    val elementCount = data.length
+    val expected = data.sortBy(_._1).toSeq
     val rdd: RDD[(ReduceKey, BytesWritable)] = sc.parallelize(data, 50).map { x =>
       (new ReduceKeyMapSide(new BytesWritable(Array[Byte](x._1.toByte))),
         new BytesWritable(Array[Byte](x._2.toByte)))
     }
-    for (k <- 0 to 5) {
+    for (k <- 0 to elementCount + 1) {
       val sortedRdd = RDDUtils.topK(rdd, k).asInstanceOf[RDD[(ReduceKeyReduceSide, Array[Byte])]]
       val output = sortedRdd.map { case(k, v) =>
         (k.byteArray(0).toInt, v(0).toInt)
       }.collect().toSeq
-      assert(output.size === math.min(k, 4))
-      assert(output === expected.take(math.min(k, 4)))
+      val expectedSize = math.min(k, elementCount)
+      assert(output.size === expectedSize)
+      assert(output === expected.take(expectedSize))
     }
   }
 

@@ -1,16 +1,12 @@
 package shark
 
 import java.io.{BufferedReader, InputStreamReader}
-import java.sql.DriverManager
-import java.sql.Statement
-import java.sql.Connection
-
-import scala.collection.JavaConversions._
+import java.sql.{Connection, DriverManager, Statement}
 
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.scalatest.matchers.ShouldMatchers
 
-import scala.concurrent._
+import scala.concurrent.{ExecutionContext, Future}
 import ExecutionContext.Implicits.global
 
 /**
@@ -31,11 +27,11 @@ class SharkServerSuite extends FunSuite with BeforeAndAfterAll with ShouldMatche
 
   Class.forName(DRIVER_NAME)
 
-  override def beforeAll() { launchServer() }
+  override def beforeAll(): Unit = { launchServer() }
 
-  override def afterAll() { stopServer() }
+  override def afterAll(): Unit = { stopServer() }
 
-  private def launchServer(args: Seq[String] = Seq.empty) {
+  private def launchServer(args: Seq[String] = Seq.empty): Unit = {
     // Forking a new process to start the Shark server. The reason to do this is it is
     // hard to clean up Hive resources entirely, so we just start a new process and kill
     // that process for cleanup.
@@ -58,7 +54,7 @@ class SharkServerSuite extends FunSuite with BeforeAndAfterAll with ShouldMatche
     // Spawn a thread to read the output from the forked process.
     // Note that this is necessary since in some configurations, log4j could be blocked
     // if its output to stderr are not read, and eventually blocking the entire test suite.
-    future {
+    Future {
       while (true) {
         val stdout = readFrom(inputReader)
         val stderr = readFrom(errorReader)
@@ -73,7 +69,7 @@ class SharkServerSuite extends FunSuite with BeforeAndAfterAll with ShouldMatche
     }
   }
 
-  private def stopServer() {
+  private def stopServer(): Unit = {
     process.destroy()
     process.waitFor()
   }
@@ -81,12 +77,12 @@ class SharkServerSuite extends FunSuite with BeforeAndAfterAll with ShouldMatche
   test("test query execution against a shark server") {
     Thread.sleep(5*1000) // I know... Gross.  However, without this the tests fail non-deterministically.
 
-    val dataFilePath = TestUtils.dataFilePath + "/kv1.txt"
+    val dataFilePath = s"${TestUtils.dataFilePath}/kv1.txt"
     val stmt = createStatement()
     stmt.executeQuery("DROP TABLE IF EXISTS test")
     stmt.executeQuery("DROP TABLE IF EXISTS test_cached")
     stmt.executeQuery("CREATE TABLE test(key int, val string)")
-    stmt.executeQuery("LOAD DATA LOCAL INPATH '" + dataFilePath+ "' OVERWRITE INTO TABLE test")
+    stmt.executeQuery(s"LOAD DATA LOCAL INPATH '$dataFilePath' OVERWRITE INTO TABLE test")
     stmt.executeQuery("CREATE TABLE test_cached as select * from test limit 499")
 
     var rs = stmt.executeQuery("select count(*) from test")
@@ -101,7 +97,7 @@ class SharkServerSuite extends FunSuite with BeforeAndAfterAll with ShouldMatche
   }
 
   def getConnection(): Connection = {
-    DriverManager.getConnection("jdbc:hive://localhost:" + PORT + "/default", "", "")
+    DriverManager.getConnection(s"jdbc:hive://localhost:$PORT/default", "", "")
   }
 
   def createStatement(): Statement = getConnection().createStatement()

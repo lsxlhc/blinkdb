@@ -34,13 +34,13 @@ object SharkRunner {
   var javaSc: JavaSharkContext = _
 
   def init(): SharkContext = synchronized {
-  	if (sc == null) {
+    if (sc == null) {
       sc = SharkEnv.initWithSharkContext("shark-sql-suite-testing", MASTER)
 
-      sc.runSql("set javax.jdo.option.ConnectionURL=jdbc:derby:;databaseName=" +
-      METASTORE_PATH + ";create=true")
-      sc.runSql("set hive.metastore.warehouse.dir=" + WAREHOUSE_PATH)
-      sc.runSql("set shark.test.data.path=" + TestUtils.dataFilePath)
+      sc.runSql(
+        s"set javax.jdo.option.ConnectionURL=jdbc:derby:;databaseName=$METASTORE_PATH;create=true")
+      sc.runSql(s"set hive.metastore.warehouse.dir=$WAREHOUSE_PATH")
+      sc.runSql(s"set shark.test.data.path=${TestUtils.dataFilePath}")
 
       // second db
       sc.sql("create database if not exists seconddb")
@@ -61,11 +61,11 @@ object SharkRunner {
    * Tables accessible by any test. Their properties should remain constant across
    * tests.
    */
-  def loadTables() = synchronized {
+  def loadTables(): Unit = synchronized {
     require(sc != null, "call init() to instantiate a SharkContext first")
 
     // Use the default namespace
-    sc.runSql("USE " + DEFAULT_DATABASE_NAME)
+    sc.runSql(s"USE $DEFAULT_DATABASE_NAME")
 
     // test
     sc.runSql("drop table if exists test")
@@ -107,20 +107,25 @@ object SharkRunner {
     sc.sql("LOAD DATA LOCAL INPATH '${hiveconf:shark.test.data.path}/test1.txt' INTO TABLE test1")
     sc.sql("drop table if exists test1_cached")
     sc.sql("CREATE TABLE test1_cached AS SELECT * FROM test1")
-    Unit
   }
 
-  def expectSql(sql: String, expectedResults: Array[String], sort: Boolean = true) {
+  def expectSql(sql: String, expectedResults: Array[String], sort: Boolean = true): Unit = {
     val sharkResults: Array[String] = sc.runSql(sql).results.map(_.mkString("\t")).toArray
-    val results = if (sort) sharkResults.sortWith(_ < _) else sharkResults
-    val expected = if (sort) expectedResults.sortWith(_ < _) else expectedResults
+
+    def normalize(values: Array[String]): Array[String] =
+      if (sort) values.sorted else values
+
+    val results = normalize(sharkResults)
+    val expected = normalize(expectedResults)
+
     assert(results.corresponds(expected)(_.equals(_)),
-      "In SQL: " + sql + "\n" +
-      "Expected: " + expected.mkString("\n") + "; got " + results.mkString("\n"))
+      s"In SQL: $sql\n" +
+      s"Expected: ${expected.mkString("\n")}" +
+      s"; got ${results.mkString("\n")}")
   }
 
   // A shortcut for single row results.
-  def expectSql(sql: String, expectedResult: String) {
+  def expectSql(sql: String, expectedResult: String): Unit = {
     expectSql(sql, Array(expectedResult))
   }
 

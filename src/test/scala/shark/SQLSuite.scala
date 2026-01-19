@@ -39,8 +39,8 @@ class SQLSuite extends FunSuite {
   val DEFAULT_DB_NAME = DEFAULT_DATABASE_NAME
   val KV1_TXT_PATH = "${hiveconf:shark.test.data.path}/kv1.txt"
 
-  var sc: SharkContext = SharkRunner.init()
-  var sharkMetastore: MemoryMetadataManager = SharkEnv.memoryMetadataManager
+  private val sc: SharkContext = SharkRunner.init()
+  private val sharkMetastore: MemoryMetadataManager = SharkEnv.memoryMetadataManager
 
   private def createCachedPartitionedTable(
       tableName: String,
@@ -59,11 +59,9 @@ class SQLSuite extends FunSuite {
         tableName,
         maxCacheSize,
         cachePolicyClassName))
-    var partitionNum = 1
-    while (partitionNum <= numPartitionsToCreate) {
+    for (partitionNum <- 1 to numPartitionsToCreate) {
       sc.runSql("""insert into table %s partition(keypart = %d)
         select * from test_cached""".format(tableName, partitionNum))
-      partitionNum += 1
     }
     assert(SharkEnv.memoryMetadataManager.containsTable(DEFAULT_DB_NAME, tableName))
     val partitionedTable = SharkEnv.memoryMetadataManager.getPartitionedTable(
@@ -71,14 +69,14 @@ class SQLSuite extends FunSuite {
     partitionedTable
   }
 
-  def isFlattenedUnionRDD(unionRDD: UnionRDD[_]) = {
-    unionRDD.rdds.find(_.isInstanceOf[UnionRDD[_]]).isEmpty
+  def isFlattenedUnionRDD(unionRDD: UnionRDD[_]): Boolean = {
+    !unionRDD.rdds.exists(_.isInstanceOf[UnionRDD[_]])
   }
 
   // Takes a sum over the table's 'key' column, for both the cached contents and the copy on disk.
   def expectUnifiedKVTable(
       cachedTableName: String,
-      partSpecOpt: Option[Map[String, String]] = None) {
+      partSpecOpt: Option[Map[String, String]] = None): Unit = {
     // Check that the table is in memory and is a unified view.
     val sharkTableOpt = sharkMetastore.getTable(DEFAULT_DB_NAME, cachedTableName)
     assert(sharkTableOpt.isDefined, "Table %s cannot be found in the Shark metastore")
@@ -795,12 +793,12 @@ class SQLSuite extends FunSuite {
 
   test("sql exception") {
     val e = intercept[QueryExecutionException] { sc.runSql("asdfasdfasdfasdf") }
-    e.getMessage.contains("semantic")
+    assert(e.getMessage.contains("semantic"))
   }
 
   test("sql2rdd exception") {
     val e = intercept[QueryExecutionException] { sc.sql2rdd("asdfasdfasdfasdf") }
-    e.getMessage.contains("semantic")
+    assert(e.getMessage.contains("semantic"))
   }
 
   //////////////////////////////////////////////////////////////////////////////

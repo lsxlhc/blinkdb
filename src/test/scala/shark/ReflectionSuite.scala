@@ -28,85 +28,94 @@ import org.scalatest.FunSuite
  */
 class ReflectionSuite extends FunSuite {
 
-  test("CliDriver") {
-    val c = classOf[org.apache.hadoop.hive.cli.CliDriver]
-    var m = c.getDeclaredMethod("getFormattedDb",
-      classOf[org.apache.hadoop.hive.conf.HiveConf],
-      classOf[org.apache.hadoop.hive.cli.CliSessionState])
-    m.setAccessible(true)
-    assert(m.getReturnType == classOf[String])
+  private def declaredMethodReturnType(
+      clazz: Class[_],
+      name: String,
+      paramTypes: Class[_]*): Class[_] = {
+    val method = clazz.getDeclaredMethod(name, paramTypes: _*)
+    method.setAccessible(true)
+    method.getReturnType
+  }
 
-    m = c.getDeclaredMethod(
-      "spacesForString", classOf[String])
-    m.setAccessible(true)
-    assert(m.getReturnType == classOf[String])
+  private def declaredFieldType(clazz: Class[_], name: String): Class[_] = {
+    val field = clazz.getDeclaredField(name)
+    field.setAccessible(true)
+    field.getType
+  }
+
+  test("CliDriver") {
+    val clazz = classOf[org.apache.hadoop.hive.cli.CliDriver]
+
+    assert(declaredMethodReturnType(
+      clazz,
+      "getFormattedDb",
+      classOf[org.apache.hadoop.hive.conf.HiveConf],
+      classOf[org.apache.hadoop.hive.cli.CliSessionState]) === classOf[String])
+
+    assert(declaredMethodReturnType(
+      clazz,
+      "spacesForString",
+      classOf[String]) === classOf[String])
   }
 
   test("Driver") {
-    val c = classOf[org.apache.hadoop.hive.ql.Driver]
+    val clazz = classOf[org.apache.hadoop.hive.ql.Driver]
 
-    var m = c.getDeclaredMethod(
-      "doAuthorization", classOf[org.apache.hadoop.hive.ql.parse.BaseSemanticAnalyzer])
-    m.setAccessible(true)
-    assert(m.getReturnType === Void.TYPE)
+    assert(declaredMethodReturnType(
+      clazz,
+      "doAuthorization",
+      classOf[org.apache.hadoop.hive.ql.parse.BaseSemanticAnalyzer]) === Void.TYPE)
 
-    m = c.getDeclaredMethod("getHooks",
-      classOf[org.apache.hadoop.hive.conf.HiveConf.ConfVars], classOf[Class[_]])
-    m.setAccessible(true)
-    assert(m.getReturnType === classOf[java.util.List[_]])
+    assert(declaredMethodReturnType(
+      clazz,
+      "getHooks",
+      classOf[org.apache.hadoop.hive.conf.HiveConf.ConfVars],
+      classOf[Class[_]]) === classOf[java.util.List[_]])
 
-    var f = c.getDeclaredField("plan")
-    f.setAccessible(true)
-    assert(f.getType === classOf[org.apache.hadoop.hive.ql.QueryPlan])
+    assert(declaredFieldType(clazz, "plan") ===
+      classOf[org.apache.hadoop.hive.ql.QueryPlan])
 
-    f = c.getDeclaredField("ctx")
-    f.setAccessible(true)
-    assert(f.getType === classOf[org.apache.hadoop.hive.ql.Context])
+    assert(declaredFieldType(clazz, "ctx") ===
+      classOf[org.apache.hadoop.hive.ql.Context])
 
-    f = c.getDeclaredField("schema")
-    f.setAccessible(true)
-    assert(f.getType === classOf[org.apache.hadoop.hive.metastore.api.Schema])
+    assert(declaredFieldType(clazz, "schema") ===
+      classOf[org.apache.hadoop.hive.metastore.api.Schema])
 
-    f = c.getDeclaredField("LOG")
-    f.setAccessible(true)
-    assert(f.getType === classOf[org.apache.commons.logging.Log])
+    assert(declaredFieldType(clazz, "LOG") ===
+      classOf[org.apache.commons.logging.Log])
   }
 
   test("SemanticAnalyzer") {
-    val c = classOf[org.apache.hadoop.hive.ql.parse.SemanticAnalyzer]
-    var m = c.getDeclaredMethod(
+    val clazz = classOf[org.apache.hadoop.hive.ql.parse.SemanticAnalyzer]
+
+    assert(declaredMethodReturnType(
+      clazz,
       "validateCreateTable",
-      classOf[org.apache.hadoop.hive.ql.plan.CreateTableDesc])
-    m.setAccessible(true)
-    assert(m.getReturnType === Void.TYPE)
+      classOf[org.apache.hadoop.hive.ql.plan.CreateTableDesc]) === Void.TYPE)
 
-    m = c.getDeclaredMethod(
+    assert(declaredMethodReturnType(
+      clazz,
       "convertRowSchemaToViewSchema",
-      classOf[org.apache.hadoop.hive.ql.parse.RowResolver])
-    m.setAccessible(true)
-    assert(m.getReturnType === classOf[java.util.List[_]])
+      classOf[org.apache.hadoop.hive.ql.parse.RowResolver]) ===
+      classOf[java.util.List[_]])
 
-    val f = c.getDeclaredField("viewsExpanded")
-    f.setAccessible(true)
-    assert(f.getType === classOf[java.util.ArrayList[_]])
+    assert(declaredFieldType(clazz, "viewsExpanded") ===
+      classOf[java.util.ArrayList[_]])
   }
 
   test("UnionOperator") {
-    val c = classOf[org.apache.hadoop.hive.ql.exec.UnionOperator]
-    var f = c.getDeclaredField("needsTransform")
-    f.setAccessible(true)
-    assert(f.getType === classOf[Array[Boolean]])
+    val clazz = classOf[org.apache.hadoop.hive.ql.exec.UnionOperator]
+    assert(declaredFieldType(clazz, "needsTransform") === classOf[Array[Boolean]])
   }
 
   test("FileSinkOperator") {
-    val fileSinkCls = classOf[org.apache.hadoop.hive.ql.exec.FileSinkOperator]
-    var f = fileSinkCls.getDeclaredField("fsp")
-    f.setAccessible(true)
-    assert(f.getType === classOf[org.apache.hadoop.hive.ql.exec.FileSinkOperator#FSPaths])
+    val fileSinkClass = classOf[org.apache.hadoop.hive.ql.exec.FileSinkOperator]
+    assert(declaredFieldType(fileSinkClass, "fsp") ===
+      classOf[org.apache.hadoop.hive.ql.exec.FileSinkOperator#FSPaths])
 
-    val fspCls  = classOf[org.apache.hadoop.hive.ql.exec.FileSinkOperator#FSPaths]
-    f = fspCls.getDeclaredField("finalPaths")
-    f.setAccessible(true)
-    assert(f.getType === classOf[Array[org.apache.hadoop.fs.Path]])
+    val fsPathsClass =
+      classOf[org.apache.hadoop.hive.ql.exec.FileSinkOperator#FSPaths]
+    assert(declaredFieldType(fsPathsClass, "finalPaths") ===
+      classOf[Array[org.apache.hadoop.fs.Path]])
   }
 }
